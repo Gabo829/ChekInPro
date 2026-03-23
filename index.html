@@ -3,27 +3,516 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Registro Ingreso/Salida</title>
+  <title>Ingreso y Salida del Local</title>
   <link rel="stylesheet" href="CSS/styles.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Registro de Ingreso y Salida</h1>
-    <div class="buttons">
-      <button id="ingreso">Ingreso</button>
-      <button id="salida">Salida</button>
-    </div>
-    <div class="logs">
-      <div class="log">
-        <h2>Último Ingreso</h2>
-        <p id="ingresoTime">—</p>
+  <main class="auth-shell" id="authShell">
+    <section class="auth-hero panel">
+      <div class="auth-copy">
+        <span class="eyebrow">Acceso al sistema</span>
+        <h1>Inicia sesión para entrar al panel</h1>
+        <p class="hero-text">Cada persona entra con el usuario y la contraseña que le entrega el dueño del sistema.</p>
       </div>
-      <div class="log">
-        <h2>Última Salida</h2>
-        <p id="salidaTime">—</p>
+
+      <div class="auth-single-wrap">
+        <section class="auth-card panel" id="loginPanel">
+          <div class="panel-heading">
+            <h2>Iniciar sesión</h2>
+            <p>Ingresa con las credenciales que te asignaron.</p>
+          </div>
+
+          <form id="loginForm" class="auth-form">
+            <div class="field-group">
+              <label for="loginNombre">Usuario</label>
+              <input id="loginNombre" type="text" placeholder="Tu nombre de usuario" required>
+            </div>
+
+            <div class="field-group">
+              <label for="loginPassword">Contraseña</label>
+              <input id="loginPassword" type="password" placeholder="Tu contraseña" required>
+            </div>
+
+            <button type="submit" class="btn btn-secondary">Entrar</button>
+            <p class="helper-message" id="loginStatus">Si no tienes cuenta, solicita tu usuario y contraseña al dueño.</p>
+          </form>
+        </section>
       </div>
+    </section>
+  </main>
+
+  <main class="app-shell is-hidden" id="dashboardShell">
+    <section class="panel session-bar">
+      <div>
+        <span class="session-label">Sesión actual</span>
+        <strong id="sessionUserName">Sin sesión</strong>
+        <small id="sessionUserRole">Debes iniciar sesión</small>
+      </div>
+
+      <div class="session-actions">
+        <span class="role-chip" id="sessionRoleChip">Sin rol</span>
+        <button type="button" class="btn btn-secondary" id="togglePasswordPanel">Cambiar clave</button>
+        <button type="button" class="btn btn-muted" id="cerrarSesion">Cerrar sesión</button>
+      </div>
+    </section>
+
+    <div class="modal-backdrop is-hidden" id="passwordModal" aria-hidden="true">
+      <section class="panel password-modal" role="dialog" aria-modal="true" aria-labelledby="passwordModalTitle">
+        <div class="password-modal-header">
+          <div class="panel-heading password-heading">
+            <h2 id="passwordModalTitle">Cambiar clave</h2>
+            <p>Actualiza la contraseña de tu cuenta actual desde aquí.</p>
+          </div>
+          <button type="button" class="modal-close" id="closePasswordModal" aria-label="Cerrar ventana de cambio de clave">×</button>
+        </div>
+
+        <form id="changePasswordForm" class="password-form">
+          <div class="field-group compact-field">
+            <label for="currentPassword">Clave actual</label>
+            <input id="currentPassword" type="password" placeholder="Escribe tu clave actual">
+          </div>
+
+          <div class="field-group compact-field">
+            <label for="newAccountPassword">Nueva clave</label>
+            <input id="newAccountPassword" type="password" placeholder="Mínimo 4 caracteres">
+          </div>
+
+          <div class="field-group compact-field">
+            <label for="confirmAccountPassword">Confirmar clave</label>
+            <input id="confirmAccountPassword" type="password" placeholder="Repite la nueva clave">
+          </div>
+
+          <div class="inline-actions">
+            <button type="submit" class="btn btn-secondary">Guardar nueva clave</button>
+            <button type="button" class="btn btn-muted" id="cancelPasswordPanel">Cancelar</button>
+          </div>
+          <p class="helper-message" id="passwordStatus">Cada usuario puede cambiar la clave de su propia cuenta.</p>
+        </form>
+      </section>
     </div>
+
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="eyebrow">Control del local</span>
+        <h1>Centro de registro y control</h1>
+      </div>
+
+      <div class="hero-side">
+        <div class="clock-card">
+          <span class="clock-label">Hora actual</span>
+          <strong id="liveClock">--:--:--</strong>
+          <span id="liveDate">--/--/----</span>
+        </div>
+        <div class="status-pill" id="estadoActual">Sin registros</div>
+      </div>
+    </section>
+
+    <section class="panel users-panel" data-owner-section="true">
+      <div class="panel-heading">
+        <h2>Usuarios registrados</h2>
+        <p>Como dueño puedes crear usuarios, asignar roles y gestionar observaciones, advertencias y sanciones.</p>
+      </div>
+
+      <div class="users-panel-grid">
+        <form id="ownerCreateUserForm" class="owner-user-form">
+          <div class="field-group compact-field">
+            <label for="ownerCreateUsername">Usuario</label>
+            <input id="ownerCreateUsername" type="text" placeholder="Ejemplo: JuanPerez">
+          </div>
+
+          <div class="field-group compact-field">
+            <label for="ownerCreatePassword">Contraseña</label>
+            <input id="ownerCreatePassword" type="text" placeholder="Crea una contraseña">
+          </div>
+
+          <div class="field-group compact-field">
+            <label for="ownerCreateRole">Rol</label>
+            <select id="ownerCreateRole">
+              <option value="empleado" selected>Empleado</option>
+              <option value="dueno">Dueño</option>
+              <option value="proveedor">Proveedor</option>
+            </select>
+          </div>
+
+          <div class="field-group field-group-wide">
+            <label for="ownerCreateObservation">Observación inicial</label>
+            <textarea id="ownerCreateObservation" rows="3" placeholder="Observaciones internas para esta cuenta..."></textarea>
+          </div>
+
+          <div class="inline-actions">
+            <button type="submit" class="btn btn-secondary">Crear usuario</button>
+          </div>
+          <p class="helper-message" id="ownerUsersStatus">Aquí aparecerán todas las cuentas registradas.</p>
+        </form>
+
+        <div class="users-table-wrap">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Rol</th>
+                <th>Usuario</th>
+                <th>Contraseña</th>
+                <th>Advertencias</th>
+                <th>Sanciones</th>
+                <th>Observaciones</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="usersBody">
+              <tr class="empty-row">
+                <td colspan="7">Todavía no hay usuarios registrados.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel form-panel" data-employee-plus="true">
+      <div class="panel-heading">
+        <h2>Nuevo movimiento</h2>
+        <p>Registra persona, turno, incidencia y observaciones del movimiento.</p>
+      </div>
+
+      <form id="registroForm" class="registro-form">
+        <fieldset class="form-grid" id="registroFieldset" data-worker-write="true">
+          <div class="field-group">
+            <label for="nombrePersona">Nombre</label>
+            <input id="nombrePersona" name="nombrePersona" type="text" placeholder="Ejemplo: Cristian" maxlength="60" required>
+          </div>
+
+          <div class="field-group">
+            <label for="turnoPersona">Turno</label>
+            <select id="turnoPersona" name="turnoPersona">
+              <option value="matutino">Matutino</option>
+              <option value="vespertino">Vespertino</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label for="incidencia">Incidencia</label>
+            <select id="incidencia" name="incidencia">
+              <option value="ninguna" selected>Sin incidencia</option>
+              <option value="retraso">Retraso</option>
+              <option value="salida_anticipada">Salida anticipada</option>
+              <option value="visita_proveedor">Visita de proveedor</option>
+              <option value="entrega_mercaderia">Entrega de mercadería</option>
+              <option value="seguridad">Seguridad</option>
+              <option value="mantenimiento">Mantenimiento</option>
+              <option value="otra">Otra</option>
+            </select>
+          </div>
+
+          <div class="field-group field-group-wide">
+            <label for="observacion">Observación</label>
+            <textarea id="observacion" name="observacion" rows="3" placeholder="Ejemplo: Apertura del local, entrega de pedido, cierre del turno..."></textarea>
+          </div>
+        </fieldset>
+
+        <div class="action-row">
+          <button type="button" class="btn btn-ingreso" id="ingreso" data-worker-write="true">Registrar ingreso</button>
+          <button type="button" class="btn btn-salida" id="salida" data-worker-write="true">Registrar salida</button>
+          <button type="button" class="btn btn-muted" id="limpiarHistorial" data-owner-only="true" data-owner-section="true">Limpiar historial</button>
+          <button type="button" class="btn btn-secondary" id="exportarCsv" data-owner-section="true">Exportar filtrado a CSV</button>
+        </div>
+        <p class="helper-message" id="formStatus">Tu rol determina las acciones que puedes realizar en este panel.</p>
+      </form>
+    </section>
+
+    <section class="panel profile-panel" data-viewer-plus="true">
+      <div class="panel-heading">
+        <h2>Mi ficha</h2>
+        <p>Aquí ves el estado que el dueño tiene registrado para tu cuenta.</p>
+      </div>
+
+      <div class="profile-grid">
+        <article class="mini-stat">
+          <span class="stat-label">Rol</span>
+          <strong id="profileRole">—</strong>
+        </article>
+        <article class="mini-stat">
+          <span class="stat-label">Advertencias</span>
+          <strong id="profileWarnings">0</strong>
+        </article>
+        <article class="mini-stat">
+          <span class="stat-label">Sanciones</span>
+          <strong id="profileSanctions">0</strong>
+        </article>
+      </div>
+
+      <div class="profile-notes">
+        <span class="stat-label">Observaciones del dueño</span>
+        <p id="profileObservation">No tienes observaciones registradas.</p>
+      </div>
+    </section>
+
+    <section class="stats-grid" data-owner-section="true">
+      <article class="panel stat-card">
+        <span class="stat-label">Último ingreso</span>
+        <strong id="ingresoTime">—</strong>
+        <small id="ultimoIngresoPersona">Sin registro</small>
+      </article>
+
+      <article class="panel stat-card">
+        <span class="stat-label">Última salida</span>
+        <strong id="salidaTime">—</strong>
+        <small id="ultimaSalidaPersona">Sin registro</small>
+      </article>
+
+      <article class="panel stat-card accent-card">
+        <span class="stat-label">Movimientos de hoy</span>
+        <strong id="totalMovimientos">0</strong>
+        <small id="resumenHoy">Todavía no hay actividad registrada</small>
+      </article>
+
+      <article class="panel stat-card">
+        <span class="stat-label">Semana actual</span>
+        <strong id="totalSemana">0</strong>
+        <small id="resumenSemana">Sin actividad semanal</small>
+      </article>
+
+      <article class="panel stat-card">
+        <span class="stat-label">Mes actual</span>
+        <strong id="totalMes">0</strong>
+        <small id="resumenMes">Sin actividad mensual</small>
+      </article>
+
+      <article class="panel stat-card accent-card-soft">
+        <span class="stat-label">Personas hoy</span>
+        <strong id="personasHoy">0</strong>
+        <small id="resumenPersonasHoy">Sin personas registradas hoy</small>
+      </article>
+    </section>
+
+    <section class="panel history-panel" data-viewer-plus="true">
+      <div class="panel-heading history-heading">
+        <div>
+          <h2>Historial</h2>
+        </div>
+        <span class="history-badge" id="historyCount">0 registros</span>
+      </div>
+
+      <div class="history-filters">
+        <div class="panel-heading history-filters-heading">
+          <div>
+            <h3>Filtros y búsqueda</h3>
+          </div>
+        </div>
+
+        <div class="filters-grid">
+          <div class="field-group compact-field">
+            <label for="buscarNombre">Buscar por nombre</label>
+            <input id="buscarNombre" type="text" placeholder="Nombre u observación">
+          </div>
+
+          <div class="field-group compact-field">
+            <label for="filtroPeriodo">Periodo</label>
+            <select id="filtroPeriodo">
+              <option value="todos">Todos</option>
+              <option value="hoy" selected>Hoy</option>
+              <option value="semana">Esta semana</option>
+              <option value="mes">Este mes</option>
+              <option value="fecha">Fecha específica</option>
+            </select>
+          </div>
+
+          <div class="field-group compact-field" id="fechaFiltroWrap">
+            <label for="filtroFecha">Fecha</label>
+            <input id="filtroFecha" type="date">
+          </div>
+
+          <div class="field-group compact-field" data-owner-section="true">
+            <label for="filtroRol">Tipo de persona</label>
+            <select id="filtroRol">
+              <option value="todos">Todos</option>
+              <option value="dueno">Dueño</option>
+              <option value="empleado">Empleado</option>
+              <option value="proveedor">Proveedor</option>
+            </select>
+          </div>
+
+          <div class="field-group compact-field">
+            <label for="filtroTurno">Turno</label>
+            <select id="filtroTurno">
+              <option value="todos">Todos</option>
+              <option value="matutino">Matutino</option>
+              <option value="vespertino">Vespertino</option>
+            </select>
+          </div>
+
+          <div class="field-group compact-field">
+            <label for="filtroIncidencia">Incidencia</label>
+            <select id="filtroIncidencia">
+              <option value="todos">Todas</option>
+              <option value="ninguna">Sin incidencia</option>
+              <option value="retraso">Retraso</option>
+              <option value="salida_anticipada">Salida anticipada</option>
+              <option value="visita_proveedor">Visita de proveedor</option>
+              <option value="entrega_mercaderia">Entrega de mercadería</option>
+              <option value="seguridad">Seguridad</option>
+              <option value="mantenimiento">Mantenimiento</option>
+              <option value="otra">Otra</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="inline-actions filters-actions">
+          <button type="button" class="btn btn-muted" id="limpiarFiltros">Limpiar filtros</button>
+        </div>
+      </div>
+
+      <div class="history-table-wrap">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th>Tipo</th>
+              <th>Nombre</th>
+              <th data-owner-history-column="role">Rol</th>
+              <th>Turno</th>
+              <th>Incidencia</th>
+              <th>Fecha y hora</th>
+              <th>Observación</th>
+              <th data-owner-history-column="actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="historialBody">
+            <tr class="empty-row">
+              <td colspan="8">Todavía no hay movimientos registrados.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop is-hidden" id="userModal" aria-hidden="true">
+    <section class="panel generic-modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+      <div class="password-modal-header">
+        <div class="panel-heading password-heading">
+          <h2 id="userModalTitle">Editar usuario</h2>
+          <p>Actualiza su rol, contraseña, observaciones, advertencias y sanciones.</p>
+        </div>
+        <button type="button" class="modal-close" id="closeUserModal" aria-label="Cerrar ventana de edición de usuario">×</button>
+      </div>
+
+      <form id="editUserForm" class="password-form">
+        <input id="editUserKey" type="hidden">
+
+        <div class="field-group compact-field">
+          <label for="editUserUsername">Usuario</label>
+          <input id="editUserUsername" type="text" readonly>
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editUserRole">Rol</label>
+          <select id="editUserRole">
+            <option value="dueno">Dueño</option>
+            <option value="empleado">Empleado</option>
+            <option value="proveedor">Proveedor</option>
+          </select>
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editUserPassword">Contraseña</label>
+          <input id="editUserPassword" type="text">
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editUserWarnings">Advertencias</label>
+          <input id="editUserWarnings" type="number" min="0" step="1">
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editUserSanctions">Sanciones</label>
+          <input id="editUserSanctions" type="number" min="0" step="1">
+        </div>
+
+        <div class="field-group field-group-wide">
+          <label for="editUserObservation">Observaciones</label>
+          <textarea id="editUserObservation" rows="4"></textarea>
+        </div>
+
+        <div class="inline-actions">
+          <button type="submit" class="btn btn-secondary">Guardar cambios</button>
+          <button type="button" class="btn btn-muted" id="cancelUserModal">Cancelar</button>
+        </div>
+        <p class="helper-message" id="editUserStatus">Solo el dueño puede editar usuarios.</p>
+      </form>
+    </section>
   </div>
-  <script src="js/script.js"></script>
+
+  <div class="modal-backdrop is-hidden" id="historyModal" aria-hidden="true">
+    <section class="panel generic-modal" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
+      <div class="password-modal-header">
+        <div class="panel-heading password-heading">
+          <h2 id="historyModalTitle">Editar movimiento</h2>
+          <p>La fecha y hora son informativas y no se pueden modificar.</p>
+        </div>
+        <button type="button" class="modal-close" id="closeHistoryModal" aria-label="Cerrar ventana de edición de historial">×</button>
+      </div>
+
+      <form id="editHistoryForm" class="password-form">
+        <input id="editHistoryIndex" type="hidden">
+
+        <div class="field-group compact-field">
+          <label for="editHistoryDate">Fecha y hora</label>
+          <input id="editHistoryDate" type="text" readonly>
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editHistoryType">Tipo</label>
+          <select id="editHistoryType">
+            <option value="ingreso">Ingreso</option>
+            <option value="salida">Salida</option>
+          </select>
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editHistoryName">Nombre</label>
+          <input id="editHistoryName" type="text">
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editHistoryRole">Rol</label>
+          <input id="editHistoryRole" type="text" readonly>
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editHistoryTurno">Turno</label>
+          <select id="editHistoryTurno">
+            <option value="matutino">Matutino</option>
+            <option value="vespertino">Vespertino</option>
+          </select>
+        </div>
+
+        <div class="field-group compact-field">
+          <label for="editHistoryIncidencia">Incidencia</label>
+          <select id="editHistoryIncidencia">
+            <option value="ninguna">Sin incidencia</option>
+            <option value="retraso">Retraso</option>
+            <option value="salida_anticipada">Salida anticipada</option>
+            <option value="visita_proveedor">Visita de proveedor</option>
+            <option value="entrega_mercaderia">Entrega de mercadería</option>
+            <option value="seguridad">Seguridad</option>
+            <option value="mantenimiento">Mantenimiento</option>
+            <option value="otra">Otra</option>
+          </select>
+        </div>
+
+        <div class="field-group field-group-wide">
+          <label for="editHistoryObservation">Observación</label>
+          <textarea id="editHistoryObservation" rows="4"></textarea>
+        </div>
+
+        <div class="inline-actions">
+          <button type="submit" class="btn btn-secondary">Guardar cambios</button>
+          <button type="button" class="btn btn-muted" id="cancelHistoryModal">Cancelar</button>
+        </div>
+        <p class="helper-message" id="editHistoryStatus">Solo el dueño puede editar el historial.</p>
+      </form>
+    </section>
+  </div>
+
+  <script src="JS/script.js"></script>
 </body>
 </html>
