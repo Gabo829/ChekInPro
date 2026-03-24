@@ -5,6 +5,14 @@ const CURRENT_USER_KEY = 'registroIngresoSalidaCurrentUser';
 const AUTH_DRAFTS_KEY = 'registroIngresoSalidaAuthDrafts';
 const AUTH_VIEW_KEY = 'registroIngresoSalidaAuthView';
 const HISTORY_FILTERS_KEY = 'registroIngresoSalidaHistoryFilters';
+const SHARED_SYNC_TABLE = 'registro_sistema';
+const SHARED_SYNC_PULL_INTERVAL = 15000;
+
+let sincronizacionCompartidaDisponible = false;
+let sincronizacionCompartidaInicializada = false;
+let ultimaActualizacionCompartida = '';
+let colaSincronizacionCompartida = Promise.resolve();
+let intervaloSincronizacionCompartida = null;
 
 const LABELS_ROL = {
   admin: 'Administrador',
@@ -46,6 +54,49 @@ const LABELS_DISCIPLINA = {
   advertencia: 'Advertencia',
   sancion: 'Sanción'
 };
+
+function obtenerConfiguracionCompartida() {
+  const config = window.APP_SYNC_CONFIG || {};
+  const url = String(config.url || '').trim().replace(/\/+$/, '');
+  const anonKey = String(config.anonKey || '').trim();
+  const instanceId = String(config.instanceId || 'principal').trim() || 'principal';
+
+  return {
+    provider: String(config.provider || 'supabase').trim().toLowerCase(),
+    url,
+    anonKey,
+    instanceId,
+    isEnabled: Boolean(url && anonKey)
+  };
+}
+
+function usarPersistenciaCompartida() {
+  const config = obtenerConfiguracionCompartida();
+  return config.provider === 'supabase' && config.isEnabled;
+}
+
+async function solicitarSupabase(path, options = {}) {
+  const config = obtenerConfiguracionCompartida();
+  const headers = Object.assign({
+    apikey: config.anonKey,
+    Authorization: `Bearer ${config.anonKey}`,
+    'Content-Type': 'application/json'
+  }, options.headers || {});
+
+  const response = await fetch(`${config.url}/rest/v1/${path}`, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+
+  if (!response.ok) {
+    const detalle = await response.text();
+    throw new Error(detalle || 'No se pudo completar la solicitud remota.');
+  }
+
+  if (response.status === 204) return null;
+  return response.json();
+}
 
 function formatoFechaHora(fecha) {
   return fecha.toLocaleString('es-ES', {
@@ -301,6 +352,140 @@ function normalizarEstado(data) {
   };
 }
 
+function construirSnapshotCompartido(users = obtenerUsuariosGuardados(), estado = obtenerEstadoGuardado()) {
+  const config = obtenerConfiguracionCompartida();
+  return {
+    id: config.instanceId,
+    users: users.map(normalizarUsuario),
+    state: normalizarEstado(estado),
+    updated_at: new Date().toISOString()
+  };
+}
+
+function normalizarSnapshotCompartido(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  return {
+    id: String(payload.id || ''),
+    users: Array.isArray(payload.users) ? payload.users.map(normalizarUsuario).filter((user) => user.usernameKey) : [],
+    state: normalizarEstado(payload.state || crearEstadoInicial()),
+    updatedAt: String(payload.updated_at || '')
+  };
+}
+
+function escribirSnapshotCompartidoEnLocal(snapshot) {
+  if (!snapshot) return;
+  localStorage.setItem(USERS_KEY, JSON.stringify(snapshot.users || []));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot.state || crearEstadoInicial()));
+  ultimaActualizacionCompartida = snapshot.updatedAt || new Date().toISOString();
+}
+
+async function obtenerSnapshotCompartidoRemoto() {
+  const config = obtenerConfiguracionCompartida();
+  const query = new URLSearchParams({
+    id: `eq.${config.instanceId}`,
+    select: 'id,users,state,updated_at'
+  });
+  const filas = await solicitarSupabase(`${SHARED_SYNC_TABLE}?${query.toString()}`);
+  if (!Array.isArray(filas) || !filas.length) return null;
+  return normalizarSnapshotCompartido(filas[0]);
+}
+
+async function guardarSnapshotCompartidoRemoto(snapshot) {
+  const filas = await solicitarSupabase(SHARED_SYNC_TABLE, {
+    method: 'POST',
+    headers: {
+      Prefer: 'resolution=merge-duplicates,return=representation'
+    },
+    body: snapshot
+  });
+
+  if (!Array.isArray(filas) || !filas.length) return normalizarSnapshotCompartido(snapshot);
+  return normalizarSnapshotCompartido(filas[0]);
+}
+
+function programarSincronizacionCompartida() {
+  if (!usarPersistenciaCompartida() || !sincronizacionCompartidaDisponible) return;
+
+  colaSincronizacionCompartida = colaSincronizacionCompartida
+    .catch(() => null)
+    .then(async () => {
+      try {
+        const snapshot = construirSnapshotCompartido();
+        const remoto = await guardarSnapshotCompartidoRemoto(snapshot);
+        if (remoto) escribirSnapshotCompartidoEnLocal(remoto);
+      } catch (error) {
+        console.error('No se pudo sincronizar el sistema compartido.', error);
+      }
+    });
+}
+
+async function refrescarSnapshotCompartido(force = false) {
+  if (!usarPersistenciaCompartida() || !sincronizacionCompartidaDisponible) return false;
+
+  try {
+    const remoto = await obtenerSnapshotCompartidoRemoto();
+    if (!remoto) return false;
+
+    if (!force && remoto.updatedAt && remoto.updatedAt === ultimaActualizacionCompartida) {
+      return false;
+    }
+
+    const sesionActual = obtenerSesionActual();
+    escribirSnapshotCompartidoEnLocal(remoto);
+
+    if (sesionActual) {
+      const usuarioSincronizado = remoto.users.find((user) => user.usernameKey === sesionActual.usernameKey);
+      if (usuarioSincronizado) {
+        guardarSesionActual(usuarioSincronizado);
+      } else {
+        cerrarSesionActual();
+      }
+    }
+
+    renderizarTodo();
+    return true;
+  } catch (error) {
+    console.error('No se pudo refrescar el sistema compartido.', error);
+    return false;
+  }
+}
+
+async function inicializarPersistenciaCompartida() {
+  if (!usarPersistenciaCompartida()) return false;
+
+  try {
+    const remoto = await obtenerSnapshotCompartidoRemoto();
+
+    if (remoto) {
+      escribirSnapshotCompartidoEnLocal(remoto);
+    } else {
+      const semilla = construirSnapshotCompartido();
+      const creado = await guardarSnapshotCompartidoRemoto(semilla);
+      escribirSnapshotCompartidoEnLocal(creado || semilla);
+    }
+
+    sincronizacionCompartidaDisponible = true;
+    return true;
+  } catch (error) {
+    console.error('La persistencia compartida no se pudo iniciar. Se usará almacenamiento local.', error);
+    sincronizacionCompartidaDisponible = false;
+    return false;
+  }
+}
+
+function iniciarVigilanciaPersistenciaCompartida() {
+  if (!usarPersistenciaCompartida() || sincronizacionCompartidaInicializada) return;
+
+  sincronizacionCompartidaInicializada = true;
+  intervaloSincronizacionCompartida = window.setInterval(() => {
+    if (document.visibilityState === 'visible') refrescarSnapshotCompartido(false);
+  }, SHARED_SYNC_PULL_INTERVAL);
+
+  window.addEventListener('focus', () => {
+    refrescarSnapshotCompartido(true);
+  });
+}
+
 function obtenerUsuariosGuardados() {
   try {
     const raw = JSON.parse(localStorage.getItem(USERS_KEY));
@@ -311,7 +496,8 @@ function obtenerUsuariosGuardados() {
 }
 
 function guardarUsuarios(users) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  localStorage.setItem(USERS_KEY, JSON.stringify(users.map(normalizarUsuario)));
+  programarSincronizacionCompartida();
 }
 
 function asegurarUsuarioAdminInicial() {
@@ -507,7 +693,8 @@ function obtenerEstadoGuardado() {
 }
 
 function guardarEstado(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizarEstado(data)));
+  programarSincronizacionCompartida();
 }
 
 function obtenerElementos() {
@@ -1444,6 +1631,18 @@ function escaparCsv(valor) {
   return `"${String(valor || '').replace(/"/g, '""')}"`;
 }
 
+function descargarArchivo(contenido, nombreArchivo, tipo) {
+  const blob = new Blob([contenido], { type: tipo });
+  const url = URL.createObjectURL(blob);
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  document.body.appendChild(enlace);
+  enlace.click();
+  document.body.removeChild(enlace);
+  URL.revokeObjectURL(url);
+}
+
 function exportarCsv() {
   const data = obtenerEstadoGuardado();
   const elements = obtenerElementos();
@@ -1471,15 +1670,7 @@ function exportarCsv() {
     .map((fila) => fila.map(escaparCsv).join(separador))
     .join('\r\n');
   const csv = `\ufeffsep=${separador}\r\n${contenido}`;
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const enlace = document.createElement('a');
-  enlace.href = url;
-  enlace.download = 'historial-filtrado-ingreso-salida.csv';
-  document.body.appendChild(enlace);
-  enlace.click();
-  document.body.removeChild(enlace);
-  URL.revokeObjectURL(url);
+  descargarArchivo(csv, 'historial-filtrado-ingreso-salida.csv', 'text/csv;charset=utf-8;');
 }
 
 function alternarPanelClave(mostrar) {
@@ -2166,10 +2357,12 @@ function registrarEventos() {
   if (botonLimpiarFiltros) botonLimpiarFiltros.addEventListener('click', limpiarFiltros);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   migrarRegistroLegacy();
   asegurarUsuarioAdminInicial();
   migrarUsuarioInicialAGabriel();
+  await inicializarPersistenciaCompartida();
+  iniciarVigilanciaPersistenciaCompartida();
   inicializarValoresBase();
   registrarEventos();
   renderizarTodo();
