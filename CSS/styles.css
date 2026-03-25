@@ -1256,6 +1256,11 @@ select:disabled {
 	color: #ff8c88;
 }
 
+.type-report {
+	background: rgba(255, 184, 92, 0.2);
+	color: #ffd98f;
+}
+
 /* =====================================================
 	 Responsive
 	 - Ajustes para escritorio compacto, tablet y móvil

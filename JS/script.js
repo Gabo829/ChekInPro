@@ -40,7 +40,8 @@ const LABELS_TIPO = {
   salida: 'Salida',
   registro_proveedor: 'Registro',
   advertencia: 'Advertencia',
-  sancion: 'Sanción'
+  sancion: 'Sanción',
+  reporte: 'Reporte'
 };
 
 const INCIDENCIAS_POR_ROL = {
@@ -52,8 +53,11 @@ const INCIDENCIAS_POR_ROL = {
 
 const LABELS_DISCIPLINA = {
   advertencia: 'Advertencia',
-  sancion: 'Sanción'
+  sancion: 'Sanción',
+  reporte: 'Reporte'
 };
+
+const TIPOS_DISCIPLINA = ['advertencia', 'sancion', 'reporte'];
 
 function obtenerConfiguracionCompartida() {
   const config = window.APP_SYNC_CONFIG || {};
@@ -220,8 +224,11 @@ function normalizarDuracionJornada(valor) {
 
 function normalizarRegistroDisciplinario(entry) {
   const fecha = entry && entry.fechaISO ? new Date(entry.fechaISO) : new Date();
+  const tipoNormalizado = TIPOS_DISCIPLINA.includes(entry && entry.tipo)
+    ? entry.tipo
+    : 'advertencia';
   return {
-    tipo: entry && entry.tipo === 'sancion' ? 'sancion' : 'advertencia',
+    tipo: tipoNormalizado,
     motivo: String((entry && entry.motivo) || '').trim(),
     fechaISO: entry && entry.fechaISO ? entry.fechaISO : fecha.toISOString(),
     fechaTexto: entry && entry.fechaTexto ? entry.fechaTexto : formatoFechaHora(fecha),
@@ -322,8 +329,14 @@ function normalizarUsuario(user) {
     observacionUsuario: String(user.observacionUsuario || ''),
     advertencias: historialDisciplinario.filter((item) => item.tipo === 'advertencia').length,
     sanciones: historialDisciplinario.filter((item) => item.tipo === 'sancion').length,
+    reportes: historialDisciplinario.filter((item) => item.tipo === 'reporte').length,
     historialDisciplinario
   };
+}
+
+function obtenerTotalReportesProveedor(user) {
+  if (!user || !Array.isArray(user.historialDisciplinario)) return 0;
+  return user.historialDisciplinario.filter((item) => TIPOS_DISCIPLINA.includes(item.tipo)).length;
 }
 
 function crearUsuarioAdminInicial() {
@@ -747,10 +760,12 @@ function obtenerElementos() {
     adminCreateRole: document.getElementById('adminCreateRole'),
     adminCreateObservation: document.getElementById('adminCreateObservation'),
     adminUsersStatus: document.getElementById('adminUsersStatus'),
+    usersPanelDescription: document.getElementById('usersPanelDescription'),
     usersBody: document.getElementById('usersBody'),
     userModal: document.getElementById('userModal'),
     closeUserModalButton: document.getElementById('closeUserModal'),
     cancelUserModalButton: document.getElementById('cancelUserModal'),
+    userModalDescription: document.getElementById('userModalDescription'),
     editUserForm: document.getElementById('editUserForm'),
     editUserKey: document.getElementById('editUserKey'),
     editUserUsername: document.getElementById('editUserUsername'),
@@ -758,12 +773,18 @@ function obtenerElementos() {
     editUserPassword: document.getElementById('editUserPassword'),
     editUserWarnings: document.getElementById('editUserWarnings'),
     editUserSanctions: document.getElementById('editUserSanctions'),
+    editUserWarningsWrap: document.getElementById('editUserWarningsWrap'),
+    editUserSanctionsWrap: document.getElementById('editUserSanctionsWrap'),
+    editUserWarningsLabel: document.getElementById('editUserWarningsLabel'),
+    editUserSanctionsLabel: document.getElementById('editUserSanctionsLabel'),
     showWarningEditorButton: document.getElementById('showWarningEditor'),
     showSanctionEditorButton: document.getElementById('showSanctionEditor'),
     showObservationEditorButton: document.getElementById('showObservationEditor'),
     warningReasonWrap: document.getElementById('warningReasonWrap'),
     sanctionReasonWrap: document.getElementById('sanctionReasonWrap'),
     userObservationWrap: document.getElementById('userObservationWrap'),
+    editWarningReasonLabel: document.getElementById('editWarningReasonLabel'),
+    editSanctionReasonLabel: document.getElementById('editSanctionReasonLabel'),
     editWarningReason: document.getElementById('editWarningReason'),
     editSanctionReason: document.getElementById('editSanctionReason'),
     editUserObservation: document.getElementById('editUserObservation'),
@@ -951,6 +972,7 @@ function obtenerClaseTipoMovimiento(item) {
   if (item.tipo === 'salida') return 'type-out';
   if (item.tipo === 'advertencia') return 'type-warning';
   if (item.tipo === 'sancion') return 'type-sanction';
+  if (item.tipo === 'reporte') return 'type-report';
   return '';
 }
 
@@ -1109,6 +1131,48 @@ function renderizarOpcionesTipoEdicion(elements, rol, valorSeleccionado) {
     : opciones[0].value;
 }
 
+function obtenerDescripcionPanelUsuarios(usuario) {
+  if (!usuario) {
+    return 'Como administrador puedes crear usuarios, asignar roles y gestionar observaciones, advertencias, sanciones y reportes.';
+  }
+
+  if (usuario.rol === 'developer') {
+    return 'Como developer puedes gestionar cuentas técnicas y operativas, ajustar roles y registrar observaciones, sanciones y reportes.';
+  }
+
+  return 'Como administrador puedes crear usuarios, asignar roles y gestionar observaciones, advertencias, sanciones y reportes.';
+}
+
+function obtenerDescripcionModalUsuario(rolObjetivo) {
+  const rol = normalizarRolGestionable(rolObjetivo, 'empleado');
+
+  if (rol === 'proveedor') {
+    return 'Actualiza su rol, contraseña, observaciones y reportes para mantener el seguimiento del proveedor.';
+  }
+
+  if (rol === 'developer') {
+    return 'Actualiza su rol, contraseña y observaciones de acceso para mantener el control del perfil developer.';
+  }
+
+  if (rol === 'admin') {
+    return 'Actualiza su rol, contraseña y observaciones para mantener el control del perfil administrativo.';
+  }
+
+  return 'Actualiza su rol, contraseña, observaciones, advertencias y sanciones del usuario seleccionado.';
+}
+
+function actualizarTextosGestionUsuarios(elements, usuario) {
+  if (elements.usersPanelDescription) {
+    elements.usersPanelDescription.textContent = obtenerDescripcionPanelUsuarios(usuario);
+  }
+}
+
+function actualizarTextoModalUsuario(elements, rolObjetivo) {
+  if (elements.userModalDescription) {
+    elements.userModalDescription.textContent = obtenerDescripcionModalUsuario(rolObjetivo);
+  }
+}
+
 function actualizarFormularioPorRol(elements, usuario) {
   const rol = usuario ? usuario.rol : 'empleado';
   const esProveedor = rol === 'proveedor';
@@ -1142,6 +1206,7 @@ function restaurarDraftsAuth(elements) {
 function actualizarVistaSesion(elements, usuario) {
   const permisos = obtenerPermisosUsuario(usuario);
   const etiquetaRol = usuario ? obtenerEtiqueta(LABELS_ROL, usuario.rol) : 'Sin rol';
+  actualizarTextosGestionUsuarios(elements, usuario);
   const textosHeroPorRol = {
     admin: {
       eyebrow: 'Área administrativa',
@@ -1261,7 +1326,9 @@ function actualizarVistaSesion(elements, usuario) {
 function renderizarFichaUsuarioActual(usuario, elements) {
   if (!usuario) return;
   const esProveedor = usuario.rol === 'proveedor';
-  const totalReportes = Number(usuario.advertencias || 0) + Number(usuario.sanciones || 0);
+  const totalReportes = esProveedor
+    ? obtenerTotalReportesProveedor(usuario)
+    : Number(usuario.advertencias || 0) + Number(usuario.sanciones || 0);
 
   if (elements.profileGrid) {
     elements.profileGrid.classList.toggle('is-provider-profile', esProveedor);
@@ -1301,15 +1368,52 @@ function renderizarHistorialDisciplinarioUsuario(user, elements) {
 function alternarEditorDisciplinario(elements, panel) {
   const mostrarAdvertencia = panel === 'advertencia';
   const mostrarSancion = panel === 'sancion';
+  const mostrarReporte = panel === 'reporte';
   const mostrarObservacion = panel === 'observacion';
 
-  if (elements.warningReasonWrap) elements.warningReasonWrap.classList.toggle('is-hidden', !mostrarAdvertencia);
+  if (elements.warningReasonWrap) elements.warningReasonWrap.classList.toggle('is-hidden', !(mostrarAdvertencia || mostrarReporte));
   if (elements.sanctionReasonWrap) elements.sanctionReasonWrap.classList.toggle('is-hidden', !mostrarSancion);
   if (elements.userObservationWrap) elements.userObservationWrap.classList.toggle('is-hidden', !mostrarObservacion);
 
-  if (elements.showWarningEditorButton) elements.showWarningEditorButton.classList.toggle('is-active', mostrarAdvertencia);
+  if (elements.showWarningEditorButton) elements.showWarningEditorButton.classList.toggle('is-active', mostrarAdvertencia || mostrarReporte);
   if (elements.showSanctionEditorButton) elements.showSanctionEditorButton.classList.toggle('is-active', mostrarSancion);
   if (elements.showObservationEditorButton) elements.showObservationEditorButton.classList.toggle('is-active', mostrarObservacion);
+}
+
+function actualizarControlesDisciplinaUsuario(elements, rol, user = null) {
+  const rolNormalizado = normalizarRolGestionable(rol, user && user.rol ? user.rol : 'empleado');
+  const esProveedor = rolNormalizado === 'proveedor';
+
+  if (elements.editUserWarningsLabel) {
+    elements.editUserWarningsLabel.textContent = esProveedor ? 'Reportes' : 'Advertencias';
+  }
+  if (elements.editUserSanctionsWrap) {
+    elements.editUserSanctionsWrap.classList.toggle('is-hidden', esProveedor);
+  }
+  if (elements.showWarningEditorButton) {
+    elements.showWarningEditorButton.textContent = esProveedor ? 'Nuevo reporte' : 'Nueva advertencia';
+  }
+  if (elements.showSanctionEditorButton) {
+    elements.showSanctionEditorButton.classList.toggle('is-hidden', esProveedor);
+    if (esProveedor) elements.showSanctionEditorButton.classList.remove('is-active');
+  }
+  if (elements.editWarningReasonLabel) {
+    elements.editWarningReasonLabel.textContent = esProveedor ? 'Motivo del nuevo reporte' : 'Motivo de nueva advertencia';
+  }
+  if (elements.editWarningReason) {
+    elements.editWarningReason.placeholder = esProveedor
+      ? 'Escribe el motivo si vas a registrar un reporte para este proveedor...'
+      : 'Escribe el motivo si vas a registrar una advertencia...';
+  }
+  if (elements.editUserWarnings && user) {
+    elements.editUserWarnings.value = String(esProveedor ? obtenerTotalReportesProveedor(user) : (user.advertencias || 0));
+  }
+  if (elements.editUserSanctions && user) {
+    elements.editUserSanctions.value = String(user.sanciones || 0);
+  }
+  if (esProveedor && elements.sanctionReasonWrap) {
+    elements.sanctionReasonWrap.classList.add('is-hidden');
+  }
 }
 
 function formatearDuracion(ms) {
@@ -1477,8 +1581,8 @@ function renderizarUsuariosRegistrados(elements) {
       <td>${escapeHtml(obtenerEtiqueta(LABELS_ROL, user.rol))}</td>
       <td>${escapeHtml(user.username)}</td>
       <td>${escapeHtml(user.password || '—')}</td>
-      <td>${escapeHtml(String(user.advertencias || 0))}</td>
-      <td>${escapeHtml(String(user.sanciones || 0))}</td>
+      <td>${escapeHtml(String(user.rol === 'proveedor' ? obtenerTotalReportesProveedor(user) : (user.advertencias || 0)))}</td>
+      <td>${escapeHtml(String(user.rol === 'proveedor' ? '—' : (user.sanciones || 0)))}</td>
       <td>${escapeHtml(user.observacionUsuario || '—')}</td>
       <td>
         <div class="table-actions">
@@ -1512,7 +1616,7 @@ function renderizarHistorial(historialFiltrado, totalOriginal, elements, usuario
         <td>${escapeHtml(item.nombre)}</td>
         ${esAdmin ? `<td>${escapeHtml(obtenerEtiqueta(LABELS_ROL, item.rolPersona))}</td>` : ''}
         <td>${escapeHtml(obtenerTextoDuracionJornada(item))}</td>
-        <td>${escapeHtml(item.tipo === 'advertencia' || item.tipo === 'sancion' ? (item.asignadoPorUsername ? `Asignado por ${item.asignadoPorUsername}` : 'Disciplina') : obtenerEtiqueta(LABELS_INCIDENCIA, item.incidencia))}</td>
+        <td>${escapeHtml(TIPOS_DISCIPLINA.includes(item.tipo) ? (item.asignadoPorUsername ? `Asignado por ${item.asignadoPorUsername}` : 'Disciplina') : obtenerEtiqueta(LABELS_INCIDENCIA, item.incidencia))}</td>
         <td>${escapeHtml(item.fechaTexto)}</td>
         <td>${escapeHtml(item.observacion || '—')}</td>
         ${esAdmin ? `<td>${sourceType === 'disciplina'
@@ -1617,7 +1721,7 @@ function registrarMovimiento(tipo) {
 
 function limpiarHistorial() {
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede borrar el historial.');
+    alert('Solo un administrador o developer puede borrar el historial.');
     return;
   }
 
@@ -1759,7 +1863,7 @@ function contarAdministradores(users) {
 
 function eliminarUsuario(usernameKey) {
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede eliminar usuarios.');
+    alert('Solo un administrador o developer puede eliminar usuarios.');
     return;
   }
 
@@ -1786,7 +1890,7 @@ function eliminarUsuario(usernameKey) {
 
 function eliminarMovimiento(index) {
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede eliminar movimientos.');
+    alert('Solo un administrador o developer puede eliminar movimientos.');
     return;
   }
 
@@ -1834,7 +1938,7 @@ function obtenerRegistroDisciplinario(usernameKey, disciplineIndex) {
 
 function eliminarRegistroDisciplinario(usernameKey, disciplineIndex) {
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede eliminar registros disciplinarios.');
+    alert('Solo un administrador o developer puede eliminar registros disciplinarios.');
     return;
   }
 
@@ -1862,7 +1966,7 @@ function eliminarRegistroDisciplinario(usernameKey, disciplineIndex) {
 function crearUsuarioDesdePanel(event) {
   event.preventDefault();
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede registrar usuarios.');
+    alert('Solo un administrador o developer puede registrar usuarios.');
     return;
   }
 
@@ -1917,12 +2021,14 @@ function abrirEditorUsuario(usernameKey) {
   if (elements.editUserUsername) elements.editUserUsername.value = user.username;
   if (elements.editUserRole) elements.editUserRole.value = user.rol;
   if (elements.editUserPassword) elements.editUserPassword.value = user.password;
-  if (elements.editUserWarnings) elements.editUserWarnings.value = String(user.advertencias || 0);
+  if (elements.editUserWarnings) elements.editUserWarnings.value = String(user.rol === 'proveedor' ? obtenerTotalReportesProveedor(user) : (user.advertencias || 0));
   if (elements.editUserSanctions) elements.editUserSanctions.value = String(user.sanciones || 0);
   if (elements.editWarningReason) elements.editWarningReason.value = '';
   if (elements.editSanctionReason) elements.editSanctionReason.value = '';
   if (elements.editUserObservation) elements.editUserObservation.value = user.observacionUsuario || '';
+  actualizarTextoModalUsuario(elements, user.rol);
   alternarEditorDisciplinario(elements, null);
+  actualizarControlesDisciplinaUsuario(elements, user.rol, user);
   renderizarHistorialDisciplinarioUsuario(user, elements);
   if (elements.editUserStatus) elements.editUserStatus.textContent = `Editando la cuenta de ${user.username}.`;
 
@@ -1932,7 +2038,7 @@ function abrirEditorUsuario(usernameKey) {
 function guardarEdicionUsuario(event) {
   event.preventDefault();
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede editar usuarios.');
+    alert('Solo un administrador o developer puede editar usuarios.');
     return;
   }
 
@@ -1951,6 +2057,7 @@ function guardarEdicionUsuario(event) {
   const warningReason = elements.editWarningReason ? elements.editWarningReason.value.trim() : '';
   const sanctionReason = elements.editSanctionReason ? elements.editSanctionReason.value.trim() : '';
   const nuevaObservacion = elements.editUserObservation ? elements.editUserObservation.value.trim() : '';
+  const esProveedor = nuevoRol === 'proveedor';
 
   if (nuevaClave.length < 4) {
     if (elements.editUserStatus) elements.editUserStatus.textContent = 'La contraseña debe tener al menos 4 caracteres.';
@@ -1968,14 +2075,14 @@ function guardarEdicionUsuario(event) {
 
   if (warningReason) {
     historialDisciplinario.unshift(normalizarRegistroDisciplinario({
-      tipo: 'advertencia',
+      tipo: esProveedor ? 'reporte' : 'advertencia',
       motivo: warningReason,
       asignadoPorUsername: obtenerSesionActual() ? obtenerSesionActual().username : 'Administrador',
       asignadoPorUsernameKey: obtenerSesionActual() ? obtenerSesionActual().usernameKey : 'gabriel'
     }));
   }
 
-  if (sanctionReason) {
+  if (sanctionReason && !esProveedor) {
     historialDisciplinario.unshift(normalizarRegistroDisciplinario({
       tipo: 'sancion',
       motivo: sanctionReason,
@@ -2037,7 +2144,19 @@ function abrirEditorDisciplina(usernameKey, disciplineIndex) {
   if (elements.editDisciplineIndex) elements.editDisciplineIndex.value = String(disciplineIndex);
   if (elements.editDisciplineDate) elements.editDisciplineDate.value = entry.fechaTexto;
   if (elements.editDisciplineName) elements.editDisciplineName.value = user.username;
-  if (elements.editDisciplineType) elements.editDisciplineType.value = entry.tipo;
+  if (elements.editDisciplineType) {
+    const opciones = user.rol === 'proveedor'
+      ? [{ value: 'reporte', label: 'Reporte' }]
+      : [
+        { value: 'advertencia', label: 'Advertencia' },
+        { value: 'sancion', label: 'Sanción' },
+        { value: 'reporte', label: 'Reporte' }
+      ];
+    elements.editDisciplineType.innerHTML = opciones.map((opcion) => `<option value="${escapeHtml(opcion.value)}">${escapeHtml(opcion.label)}</option>`).join('');
+    elements.editDisciplineType.value = opciones.some((opcion) => opcion.value === entry.tipo)
+      ? entry.tipo
+      : opciones[0].value;
+  }
   if (elements.editDisciplineAssignedBy) elements.editDisciplineAssignedBy.value = entry.asignadoPorUsername || 'Administrador';
   if (elements.editDisciplineReason) elements.editDisciplineReason.value = entry.motivo || '';
   if (elements.editDisciplineStatus) elements.editDisciplineStatus.textContent = 'Edita el registro disciplinario y guarda.';
@@ -2048,7 +2167,7 @@ function abrirEditorDisciplina(usernameKey, disciplineIndex) {
 function guardarEdicionHistorial(event) {
   event.preventDefault();
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede editar el historial.');
+    alert('Solo un administrador o developer puede editar el historial.');
     return;
   }
 
@@ -2097,7 +2216,7 @@ function guardarEdicionHistorial(event) {
 function guardarEdicionDisciplina(event) {
   event.preventDefault();
   if (!usuarioEsAdmin()) {
-    alert('Solo un administrador puede editar registros disciplinarios.');
+    alert('Solo un administrador o developer puede editar registros disciplinarios.');
     return;
   }
 
@@ -2250,6 +2369,14 @@ function registrarEventos() {
   if (elements.showWarningEditorButton) elements.showWarningEditorButton.addEventListener('click', () => alternarEditorDisciplinario(elements, 'advertencia'));
   if (elements.showSanctionEditorButton) elements.showSanctionEditorButton.addEventListener('click', () => alternarEditorDisciplinario(elements, 'sancion'));
   if (elements.showObservationEditorButton) elements.showObservationEditorButton.addEventListener('click', () => alternarEditorDisciplinario(elements, 'observacion'));
+  if (elements.editUserRole) {
+    elements.editUserRole.addEventListener('change', () => {
+      const usernameKey = elements.editUserKey ? elements.editUserKey.value : '';
+      const user = obtenerUsuarioPorUsernameKey(usernameKey);
+      actualizarTextoModalUsuario(elements, elements.editUserRole.value);
+      actualizarControlesDisciplinaUsuario(elements, elements.editUserRole.value, user);
+    });
+  }
   if (elements.togglePasswordPanelButton) elements.togglePasswordPanelButton.addEventListener('click', () => alternarPanelClave());
   if (elements.cancelPasswordPanelButton) elements.cancelPasswordPanelButton.addEventListener('click', () => alternarPanelClave(false));
   if (elements.changePasswordForm) elements.changePasswordForm.addEventListener('submit', cambiarClaveCuenta);

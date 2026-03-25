@@ -107,7 +107,7 @@
     <section class="panel users-panel" data-admin-section="true">
       <div class="panel-heading">
         <h2>Usuarios registrados</h2>
-        <p>Como administrador puedes crear usuarios, asignar roles y gestionar observaciones, advertencias y sanciones.</p>
+        <p id="usersPanelDescription">Como administrador puedes crear usuarios, asignar roles y gestionar observaciones, advertencias, sanciones y reportes.</p>
       </div>
 
       <div class="users-panel-grid">
@@ -150,7 +150,7 @@
                 <th>Rol</th>
                 <th>Usuario</th>
                 <th>Contraseña</th>
-                <th>Advertencias</th>
+                <th>Advertencias / Reportes</th>
                 <th>Sanciones</th>
                 <th>Observaciones</th>
                 <th>Acciones</th>
@@ -366,7 +366,7 @@
       <div class="password-modal-header">
         <div class="panel-heading password-heading">
           <h2 id="userModalTitle">Editar usuario</h2>
-          <p>Actualiza su rol, contraseña, observaciones, advertencias y sanciones.</p>
+          <p id="userModalDescription">Actualiza su rol, contraseña, observaciones, advertencias, sanciones y reportes.</p>
         </div>
         <button type="button" class="modal-close" id="closeUserModal" aria-label="Cerrar ventana de edición de usuario">×</button>
       </div>
@@ -394,13 +394,13 @@
           <input id="editUserPassword" type="text">
         </div>
 
-        <div class="field-group compact-field">
-          <label for="editUserWarnings">Advertencias</label>
+        <div class="field-group compact-field" id="editUserWarningsWrap">
+          <label for="editUserWarnings" id="editUserWarningsLabel">Advertencias</label>
           <input id="editUserWarnings" type="number" min="0" step="1" readonly>
         </div>
 
-        <div class="field-group compact-field">
-          <label for="editUserSanctions">Sanciones</label>
+        <div class="field-group compact-field" id="editUserSanctionsWrap">
+          <label for="editUserSanctions" id="editUserSanctionsLabel">Sanciones</label>
           <input id="editUserSanctions" type="number" min="0" step="1" readonly>
         </div>
 
@@ -411,12 +411,12 @@
         </div>
 
         <div class="field-group field-group-wide is-hidden" id="warningReasonWrap">
-          <label for="editWarningReason">Motivo de nueva advertencia</label>
+          <label for="editWarningReason" id="editWarningReasonLabel">Motivo de nueva advertencia</label>
           <textarea id="editWarningReason" rows="3" placeholder="Escribe el motivo si vas a registrar una advertencia..."></textarea>
         </div>
 
         <div class="field-group field-group-wide is-hidden" id="sanctionReasonWrap">
-          <label for="editSanctionReason">Motivo de nueva sanción</label>
+          <label for="editSanctionReason" id="editSanctionReasonLabel">Motivo de nueva sanción</label>
           <textarea id="editSanctionReason" rows="3" placeholder="Escribe el motivo si vas a registrar una sanción..."></textarea>
         </div>
 
@@ -434,7 +434,7 @@
           <button type="submit" class="btn btn-secondary">Guardar cambios</button>
           <button type="button" class="btn btn-muted" id="cancelUserModal">Cancelar</button>
         </div>
-        <p class="helper-message" id="editUserStatus">Solo un administrador puede editar usuarios.</p>
+        <p class="helper-message" id="editUserStatus">Solo un administrador o developer puede editar usuarios.</p>
       </form>
     </section>
   </div>
@@ -536,6 +536,7 @@
           <select id="editDisciplineType">
             <option value="advertencia">Advertencia</option>
             <option value="sancion">Sanción</option>
+            <option value="reporte">Reporte</option>
           </select>
         </div>
 
@@ -553,7 +554,7 @@
           <button type="submit" class="btn btn-secondary">Guardar cambios</button>
           <button type="button" class="btn btn-muted" id="cancelDisciplineModal">Cancelar</button>
         </div>
-        <p class="helper-message" id="editDisciplineStatus">Solo un administrador puede editar registros disciplinarios.</p>
+        <p class="helper-message" id="editDisciplineStatus">Solo un administrador o developer puede editar registros disciplinarios.</p>
       </form>
     </section>
   </div>
