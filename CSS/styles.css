@@ -15,7 +15,7 @@
 	--accent-primary: #136ef6;
 	--accent-secondary: #15b474;
 	--accent-danger: #ee5854;
-	--accent-muted: #59647c;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 	--accent-gold: #ffb85c;
 }
 
@@ -1290,6 +1290,10 @@ select:disabled {
 		grid-template-columns: 1fr;
 	}
 
+	.profile-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
 	.stats-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
@@ -1560,12 +1564,25 @@ select:disabled {
 	.filters-grid,
 	.admin-user-form,
 	.profile-grid {
-		grid-template-columns: 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.profile-grid:not(.is-provider-profile) #profileRoleCard {
+		grid-column: 1 / -1;
 	}
 
 	.stats-grid {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: 14px;
+	}
+
+	.mini-stat {
+		padding: 15px;
+		gap: 8px;
+	}
+
+	.mini-stat strong {
+		font-size: clamp(1.1rem, 4.8vw, 1.5rem);
 	}
 
 	.btn,
@@ -1659,6 +1676,23 @@ select:disabled {
 
 	.stats-grid {
 		gap: 12px;
+	}
+
+	.profile-grid {
+		gap: 12px;
+	}
+
+	.profile-grid:not(.is-provider-profile) #profileRoleCard {
+		grid-column: 1 / -1;
+	}
+
+	.mini-stat {
+		padding: 13px;
+		gap: 6px;
+	}
+
+	.profile-notes {
+		padding: 15px;
 	}
 
 	.stat-card {
